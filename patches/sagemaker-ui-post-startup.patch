@@ -2,16 +2,16 @@ Index: sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/server/node/webClientServer.ts
 +++ sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
-@@ -6,6 +6,8 @@
- import { createReadStream, existsSync, writeFileSync } from 'fs';
- import {readFile } from 'fs/promises';
- import { Promises } from 'vs/base/node/pfs';
+@@ -4,6 +4,8 @@
+  *--------------------------------------------------------------------------------------------*/
+ 
+ import { createReadStream, promises, existsSync, writeFileSync } from 'fs';
 +import { spawn } from 'child_process';
 +import * as fs from 'fs';
  import * as path from 'path';
  import * as http from 'http';
  import * as url from 'url';
-@@ -39,6 +41,10 @@ const textMimeType: { [ext: string]: str
+@@ -38,6 +40,10 @@ const textMimeType: { [ext: string]: str
  	'.svg': 'image/svg+xml',
  };
  
@@ -22,36 +22,28 @@ Index: sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
  /**
   * Return an error to the client.
   */
-@@ -102,6 +108,7 @@ export class WebClientServer {
- 	private readonly _callbackRoute: string;
- 	private readonly _webExtensionRoute: string;
- 	private readonly _idleRoute: string;
-+	private readonly _postStartupScriptRoute: string;
+@@ -97,6 +103,7 @@ const STATIC_PATH = `/static`;
+ const CALLBACK_PATH = `/callback`;
+ const WEB_EXTENSION_PATH = `/web-extension-resource`;
+ const IDLE_EXTENSION_PATH = `/api/idle`;
++const POST_STARTUP_SCRIPT_PATH = `/api/poststartup`;
  
- 	constructor(
- 		private readonly _connectionToken: ServerConnectionToken,
-@@ -118,6 +125,7 @@ export class WebClientServer {
- 		this._callbackRoute = `${serverRootPath}/callback`;
- 		this._webExtensionRoute = `${serverRootPath}/web-extension-resource`;
- 		this._idleRoute = '/api/idle';
-+		this._postStartupScriptRoute = '/api/poststartup';
- 	}
+ export class WebClientServer {
  
- 	/**
-@@ -146,6 +154,9 @@ export class WebClientServer {
+@@ -141,6 +148,9 @@ export class WebClientServer {
  				// extension resource support
- 				return this._handleWebExtensionResource(req, res, parsedUrl);
+ 				return this._handleWebExtensionResource(req, res, pathname.substring(WEB_EXTENSION_PATH.length));
  			}
-+			if (pathname === this._postStartupScriptRoute) {
++			if (pathname === POST_STARTUP_SCRIPT_PATH) {
 +				return this._handlePostStartupScriptInvocation(req, res);
 +			}
  
  			return serveError(req, res, 404, 'Not found.');
  		} catch (error) {
-@@ -482,6 +493,41 @@ export class WebClientServer {
- 			serveError(req, res, 500, error.message)
- 		}
- 	}
+@@ -527,4 +537,39 @@ export class WebClientServer {
+  			serveError(req, res, 500, error.message)
+  		}
+  	}
 +
 +    /**
 +     * Handles API requests to run the post-startup script in SMD.
@@ -88,5 +80,3 @@ Index: sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
 +        }
 +    }
  }
- 
- /**

@@ -3,11 +3,11 @@ Index: sagemaker-code-editor/vscode/src/vs/workbench/browser/client.ts
 --- /dev/null
 +++ sagemaker-code-editor/vscode/src/vs/workbench/browser/client.ts
 @@ -0,0 +1,61 @@
-+import { Disposable } from 'vs/base/common/lifecycle';
-+import { CommandsRegistry } from 'vs/platform/commands/common/commands';
-+import { MenuId, MenuRegistry } from "vs/platform/actions/common/actions";
-+import { localize } from "vs/nls";
-+import { ILogService } from "vs/platform/log/common/log";
++import { Disposable } from '../../base/common/lifecycle.js';
++import { CommandsRegistry } from '../../platform/commands/common/commands.js';
++import { MenuId, MenuRegistry } from "../../platform/actions/common/actions.js";
++import { localize } from "../../nls.js";
++import { ILogService } from "../../platform/log/common/log.js";
 +
 +export class SagemakerServerClient extends Disposable {
 +	constructor (
@@ -69,11 +69,11 @@ Index: sagemaker-code-editor/vscode/src/vs/workbench/browser/web.main.ts
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/workbench/browser/web.main.ts
 +++ sagemaker-code-editor/vscode/src/vs/workbench/browser/web.main.ts
-@@ -95,6 +95,7 @@ import { TunnelSource } from 'vs/workbench/services/re
- import { TunnelSource } from 'vs/workbench/services/remote/common/tunnelModel';
- import { mainWindow } from 'vs/base/browser/window';
- import { INotificationService, Severity } from 'vs/platform/notification/common/notification';
-+import { SagemakerServerClient } from 'vs/workbench/browser/client';
+@@ -95,6 +95,7 @@ import { TunnelSource } from '../services/remote/common/tunnelModel.js';
+ import { TunnelSource } from '../services/remote/common/tunnelModel.js';
+ import { mainWindow } from '../../base/browser/window.js';
+ import { INotificationService, Severity } from '../../platform/notification/common/notification.js';
++import { SagemakerServerClient } from './client.js';
  
  export class BrowserMain extends Disposable {
  
@@ -106,8 +106,8 @@ Index: sagemaker-code-editor/vscode/product.json
  	"builtInExtensions": [
 -		{
 -			"name": "ms-vscode.js-debug-companion",
--			"version": "1.1.2",
--			"sha256": "e034b8b41beb4e97e02c70f7175bd88abe66048374c2bd629f54bb33354bc2aa",
+-			"version": "1.1.3",
+-			"sha256": "7380a890787452f14b2db7835dfa94de538caf358ebc263f9d46dd68ac52de93",
 -			"repo": "https://github.com/microsoft/vscode-js-debug-companion",
 -			"metadata": {
 -				"id": "99cb0b7f-7354-4278-b8da-6cc79972169d",
@@ -122,8 +122,8 @@ Index: sagemaker-code-editor/vscode/product.json
 -		},
 -		{
 -			"name": "ms-vscode.js-debug",
--			"version": "1.90.0",
--			"sha256": "1317dd7d1ac50641c1534a3e957ecbc94349f4fbd897acb916da11eea3208a66",
+-			"version": "1.100.1",
+-			"sha256": "8c2218df3422d45b95e96d9d28cdc4aa4426a2799aaaedd862d3f60ecab03844",
 -			"repo": "https://github.com/microsoft/vscode-js-debug",
 -			"metadata": {
 -				"id": "25629058-ddac-4e17-abba-74678e126c5d",
@@ -138,8 +138,8 @@ Index: sagemaker-code-editor/vscode/product.json
 -		},
 -		{
 -			"name": "ms-vscode.vscode-js-profile-table",
--			"version": "1.0.9",
--			"sha256": "3b62ee4276a2bbea3fe230f94b1d5edd915b05966090ea56f882e1e0ab53e1a6",
+-			"version": "1.0.10",
+-			"sha256": "7361748ddf9fd09d8a2ed1f2a2d7376a2cf9aae708692820b799708385c38e08",
 -			"repo": "https://github.com/microsoft/vscode-js-profile-visualizer",
 -			"metadata": {
 -				"id": "7e52b41b-71ad-457b-ab7e-0620f1fc4feb",
@@ -172,7 +172,7 @@ Index: sagemaker-code-editor/vscode/src/vs/platform/product/common/product.ts
 @@ -59,15 +59,17 @@ else {
  	if (Object.keys(product).length === 0) {
  		Object.assign(product, {
- 			version: '1.90.0-dev',
+ 			version: '1.95.0-dev',
 -			nameShort: 'Code - OSS Dev',
 -			nameLong: 'Code - OSS Dev',
 +			nameShort: 'CodeEditor',
@@ -229,152 +229,6 @@ Index: sagemaker-code-editor/vscode/extensions/git/package.nls.json
  	"config.timeline.showAuthor": "Controls whether to show the commit author in the Timeline view.",
  	"config.timeline.showUncommitted": "Controls whether to show uncommitted changes in the Timeline view.",
  	"config.timeline.date": "Controls which date to use for items in the Timeline view.",
-@@ -301,7 +301,7 @@
- 		"message": "[Download Git for Windows](https://git-scm.com/download/win)\nAfter installing, please [reload](command:workbench.action.reloadWindow) (or [troubleshoot](command:git.showOutput)). Additional source control providers can be installed [from the Marketplace](command:workbench.extensions.search?%22%40category%3A%5C%22scm%20providers%5C%22%22).",
- 		"comment": [
- 			"{Locked='](command:workbench.action.reloadWindow'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -309,7 +309,7 @@
- 		"message": "[Download Git for macOS](https://git-scm.com/download/mac)\nAfter installing, please [reload](command:workbench.action.reloadWindow) (or [troubleshoot](command:git.showOutput)). Additional source control providers can be installed [from the Marketplace](command:workbench.extensions.search?%22%40category%3A%5C%22scm%20providers%5C%22%22).",
- 		"comment": [
- 			"{Locked='](command:workbench.action.reloadWindow'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -317,48 +317,48 @@
- 		"message": "Source control depends on Git being installed.\n[Download Git for Linux](https://git-scm.com/download/linux)\nAfter installing, please [reload](command:workbench.action.reloadWindow) (or [troubleshoot](command:git.showOutput)). Additional source control providers can be installed [from the Marketplace](command:workbench.extensions.search?%22%40category%3A%5C%22scm%20providers%5C%22%22).",
- 		"comment": [
- 			"{Locked='](command:workbench.action.reloadWindow'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.missing": "Install Git, a popular source control system, to track code changes and collaborate with others. Learn more in our [Git guides](https://aka.ms/vscode-scm).",
- 	"view.workbench.scm.disabled": {
--		"message": "If you would like to use Git features, please enable Git in your [settings](command:workbench.action.openSettings?%5B%22git.enabled%22%5D).\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "If you would like to use Git features, please enable Git in your [settings](command:workbench.action.openSettings?%5B%22git.enabled%22%5D).\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:workbench.action.openSettings?%5B%22git.enabled%22%5D'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.empty": {
--		"message": "In order to use Git features, you can open a folder containing a Git repository or clone from a URL.\n[Open Folder](command:vscode.openFolder)\n[Clone Repository](command:git.clone)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "In order to use Git features, you can open a folder containing a Git repository or clone from a URL.\n[Open Folder](command:vscode.openFolder)\n[Clone Repository](command:git.clone)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:vscode.openFolder'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.folder": {
--		"message": "The folder currently open doesn't have a Git repository. You can initialize a repository which will enable source control features powered by Git.\n[Initialize Repository](command:git.init?%5Btrue%5D)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "The folder currently open doesn't have a Git repository. You can initialize a repository which will enable source control features powered by Git.\n[Initialize Repository](command:git.init?%5Btrue%5D)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:git.init?%5Btrue%5D'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.workspace": {
--		"message": "The workspace currently open doesn't have any folders containing Git repositories. You can initialize a repository on a folder which will enable source control features powered by Git.\n[Initialize Repository](command:git.init)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "The workspace currently open doesn't have any folders containing Git repositories. You can initialize a repository on a folder which will enable source control features powered by Git.\n[Initialize Repository](command:git.init)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:git.init'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.emptyWorkspace": {
--		"message": "The workspace currently open doesn't have any folders containing Git repositories.\n[Add Folder to Workspace](command:workbench.action.addRootFolder)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "The workspace currently open doesn't have any folders containing Git repositories.\n[Add Folder to Workspace](command:workbench.action.addRootFolder)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:workbench.action.addRootFolder'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -373,7 +373,7 @@
- 		"comment": [
- 			"{Locked='](command:git.openRepositoriesInParentFolders'}",
- 			"{Locked='](command:workbench.action.openSettings?%5B%22git.openRepositoryInParentFolders%22%5D'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -382,7 +382,7 @@
- 		"comment": [
- 			"{Locked='](command:git.openRepositoriesInParentFolders'}",
- 			"{Locked='](command:workbench.action.openSettings?%5B%22git.openRepositoryInParentFolders%22%5D'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -390,7 +390,7 @@
- 		"message": "The detected Git repository is potentially unsafe as the folder is owned by someone other than the current user.\n[Manage Unsafe Repositories](command:git.manageUnsafeRepositories)\nTo learn more about unsafe repositories [read our docs](https://aka.ms/vscode-git-unsafe-repository).",
- 		"comment": [
- 			"{Locked='](command:git.manageUnsafeRepositories'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -398,23 +398,23 @@
- 		"message": "The detected Git repositories are potentially unsafe as the folders are owned by someone other than the current user.\n[Manage Unsafe Repositories](command:git.manageUnsafeRepositories)\nTo learn more about unsafe repositories [read our docs](https://aka.ms/vscode-git-unsafe-repository).",
- 		"comment": [
- 			"{Locked='](command:git.manageUnsafeRepositories'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.closedRepository": {
--		"message": "A Git repository was found that was previously closed.\n[Reopen Closed Repository](command:git.reopenClosedRepositories)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "A Git repository was found that was previously closed.\n[Reopen Closed Repository](command:git.reopenClosedRepositories)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:git.reopenClosedRepositories'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
- 	"view.workbench.scm.closedRepositories": {
--		"message": "Git repositories were found that were previously closed.\n[Reopen Closed Repositories](command:git.reopenClosedRepositories)\nTo learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm).",
-+		"message": "Git repositories were found that were previously closed.\n[Reopen Closed Repositories](command:git.reopenClosedRepositories)\nTo learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm).",
- 		"comment": [
- 			"{Locked='](command:git.reopenClosedRepositories'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
-@@ -422,9 +422,9 @@
- 		"message": "You can clone a repository locally.\n[Clone Repository](command:git.clone 'Clone a repository once the Git extension has activated')",
- 		"comment": [
- 			"{Locked='](command:git.clone'}",
--			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for VS Code",
-+			"Do not translate the 'command:*' part inside of the '(..)'. It is an internal command syntax for Code-OSS",
- 			"Please make sure there is no space between the right bracket and left parenthesis:  ]( this is an internal syntax for links"
- 		]
- 	},
--	"view.workbench.learnMore": "To learn more about how to use Git and source control in VS Code [read our docs](https://aka.ms/vscode-scm)."
-+	"view.workbench.learnMore": "To learn more about how to use Git and source control in Code-OSS [read our docs](https://aka.ms/vscode-scm)."
- }
 Index: sagemaker-code-editor/vscode/src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedContent.ts
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/workbench/contrib/welcomeGettingStarted/common/gettingStartedContent.ts

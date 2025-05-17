@@ -89,5 +89,8 @@ cp -R vscode/* patched-vscode/
 
 # Build the project
 printf "\n======== Building project in ${PROJ_ROOT}/vscode ========\n"
-yarn --cwd "${PROJ_ROOT}/vscode" install --pure-lockfile ${VERBOSE_ARG}
-yarn --cwd "${PROJ_ROOT}/vscode" download-builtin-extensions
+# npm --cwd "${PROJ_ROOT}/vscode" install --pure-lockfile ${VERBOSE_ARG}
+# npm --cwd "${PROJ_ROOT}/vscode" download-builtin-extensions
+cd ${PROJ_ROOT}/vscode
+npm install
+npm download-builtin-extensions

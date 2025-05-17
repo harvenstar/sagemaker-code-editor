@@ -229,7 +229,7 @@ Index: sagemaker-code-editor/vscode/extensions/sagemaker-extension/.vscodeignore
 ===================================================================
 --- /dev/null
 +++ sagemaker-code-editor/vscode/extensions/sagemaker-extension/.vscodeignore
-@@ -0,0 +1,12 @@
+@@ -0,0 +1,11 @@
 +.vscode/**
 +.vscode-test/**
 +out/test/**
@@ -240,7 +240,6 @@ Index: sagemaker-code-editor/vscode/extensions/sagemaker-extension/.vscodeignore
 +out/test/**
 +out/**
 +cgmanifest.json
-+yarn.lock
 +preview-src/**
 Index: sagemaker-code-editor/vscode/extensions/sagemaker-extension/package.json
 ===================================================================

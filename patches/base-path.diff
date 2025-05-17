@@ -29,28 +29,28 @@ Index: sagemaker-code-editor/vscode/src/vs/code/browser/workbench/workbench-dev.
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/code/browser/workbench/workbench-dev.html
 +++ sagemaker-code-editor/vscode/src/vs/code/browser/workbench/workbench-dev.html
-@@ -38,7 +38,7 @@
- 	<script src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/loader.js"></script>
- 	<script src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/webPackagePaths.js"></script>
+@@ -36,7 +36,7 @@
+ 
+ 	<!-- Startup (do not modify order of script tags!) -->
  	<script>
 -		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location.origin).toString();
 +		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location).toString();
- 		Object.keys(self.webPackagePaths).map(function (key, index) {
- 			self.webPackagePaths[key] = `${baseUrl}/remote/web/node_modules/${key}/${self.webPackagePaths[key]}`;
- 		});
+ 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
+ 	</script>
+ 	<script>
 Index: sagemaker-code-editor/vscode/src/vs/code/browser/workbench/workbench.html
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/code/browser/workbench/workbench.html
 +++ sagemaker-code-editor/vscode/src/vs/code/browser/workbench/workbench.html
 @@ -36,7 +36,7 @@
- 	<script src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/loader.js"></script>
- 	<script src="{{WORKBENCH_WEB_BASE_URL}}/out/vs/webPackagePaths.js"></script>
+ 
+ 	<!-- Startup (do not modify order of script tags!) -->
  	<script>
 -		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location.origin).toString();
 +		const baseUrl = new URL('{{WORKBENCH_WEB_BASE_URL}}', window.location).toString();
- 		Object.keys(self.webPackagePaths).map(function (key, index) {
- 			self.webPackagePaths[key] = `${baseUrl}/node_modules/${key}/${self.webPackagePaths[key]}`;
- 		});
+ 		globalThis._VSCODE_FILE_ROOT = baseUrl + '/out/';
+ 	</script>
+ 	<script>
 Index: sagemaker-code-editor/vscode/src/vs/code/browser/workbench/workbench.ts
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/code/browser/workbench/workbench.ts
@@ -124,42 +124,61 @@ Index: sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
 ===================================================================
 --- sagemaker-code-editor.orig/vscode/src/vs/server/node/webClientServer.ts
 +++ sagemaker-code-editor/vscode/src/vs/server/node/webClientServer.ts
-@@ -278,7 +278,7 @@ export class WebClientServer {
- 		const remoteAuthority = (
+@@ -246,7 +246,9 @@ export class WebClientServer {
+ 		};
+ 
+ 		// Prefix routes with basePath for clients
+-		const basePath = getFirstHeader('x-forwarded-prefix') || this._basePath;
++       const basePath: string = this._environmentService.args['base-path'] || this._basePath;
++		const rootBase = relativeRoot(basePath)
++		const vscodeBase = relativePath(basePath)
+ 
+ 		const queryConnectionToken = parsedUrl.query[connectionTokenQueryName];
+ 		if (typeof queryConnectionToken === 'string') {
+@@ -285,10 +287,14 @@ export class WebClientServer {
+ 		};
+ 
+ 		const useTestResolver = (!this._environmentService.isBuilt && this._environmentService.args['use-test-resolver']);
++		// For now we are getting the remote authority from the client to avoid
++		// needing specific configuration for reverse proxies to work.  Set this to
++		// something invalid to make sure we catch code that is using this value
++		// from the backend when it should not.
+ 		let remoteAuthority = (
  			useTestResolver
  				? 'test+test'
 -				: (getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host)
-+				: (getFirstHeader('x-original-host') || getFirstHeader('x-forwarded-host') || req.headers.host || window.location.host)
++				: 'remote'
  		);
  		if (!remoteAuthority) {
  			return serveError(req, res, 400, `Bad request.`);
-@@ -305,7 +305,12 @@ export class WebClientServer {
- 			scopes: [['user:email'], ['repo']]
- 		} : undefined;
-
-+		const basePath: string = this._environmentService.args['base-path'] || "/"
-+		const base = relativeRoot(basePath)
-+		const vscodeBase = relativePath(basePath)
-+
- 		const productConfiguration = {
-+			rootEndpoint: base,
+@@ -335,5 +341,6 @@ export class WebClientServer {
+ 
+ 		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
++			rootEndpoint: rootBase,
  			embedderIdentifier: 'server-distro',
  			extensionsGallery: this._webExtensionResourceUrlTemplate && this._productService.extensionsGallery ? {
  				...this._productService.extensionsGallery,
-@@ -340,8 +345,10 @@ export class WebClientServer {
- 		const values: { [key: string]: string } = {
- 			WORKBENCH_WEB_CONFIGURATION: asJSON(workbenchWebConfiguration),
+@@ -387,7 +394,9 @@ export class WebClientServer {
  			WORKBENCH_AUTH_SESSION: authSessionInfo ? asJSON(authSessionInfo) : '',
--			WORKBENCH_WEB_BASE_URL: this._staticRoute,
--			WORKBENCH_NLS_BASE_URL: nlsBaseUrl ? `${nlsBaseUrl}${!nlsBaseUrl.endsWith('/') ? '/' : ''}${this._productService.commit}/${this._productService.version}/` : '',
-+			WORKBENCH_WEB_BASE_URL: vscodeBase + this._staticRoute,
-+			WORKBENCH_NLS_BASE_URL: vscodeBase + (nlsBaseUrl ? `${nlsBaseUrl}${!nlsBaseUrl.endsWith('/') ? '/' : ''}${this._productService.commit}/${this._productService.version}/` : ''),
-+			BASE: base,
+ 			WORKBENCH_WEB_BASE_URL: staticRoute,
+ 			WORKBENCH_NLS_URL,
+-			WORKBENCH_NLS_FALLBACK_URL: `${staticRoute}/out/nls.messages.js`
++			WORKBENCH_NLS_FALLBACK_URL: `${staticRoute}/out/nls.messages.js`,
++			BASE: rootBase,
 +			VS_BASE: vscodeBase,
  		};
  
- 		if (useTestResolver) {
-@@ -443,3 +445,70 @@ export class WebClientServer {
+ 		// DEV ---------------------------------------------------------------------------------------
+@@ -425,7 +434,7 @@ export class WebClientServer {
+ 			'default-src \'self\';',
+ 			'img-src \'self\' https: data: blob:;',
+ 			'media-src \'self\';',
+-			`script-src 'self' 'unsafe-eval' ${WORKBENCH_NLS_BASE_URL ?? ''} blob: 'nonce-1nline-m4p' ${this._getScriptCspHashes(data).join(' ')} '${webWorkerExtensionHostIframeScriptSHA}' 'sha256-/r7rqQ+yrxt57sxLuQ6AMYcy/lUpvAIzHjIJt/OeLWU=' ${useTestResolver ? '' : `http://${remoteAuthority}`};`,  // the sha is the same as in src/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html
++			`script-src 'self' 'unsafe-eval' ${WORKBENCH_NLS_BASE_URL ?? ''} blob: 'nonce-1nline-m4p' ${this._getScriptCspHashes(data).join(' ')} '${webWorkerExtensionHostIframeScriptSHA}' 'sha256-/r7rqQ+yrxt57sxLuQ6AMYcy/lUpvAIzHjIJt/OeLWU=' ${useTestResolver ? '' : ``};`,  // the sha is the same as in src/vs/workbench/services/extensions/worker/webWorkerExtensionHostIframe.html
+ 			'child-src \'self\';',
+ 			`frame-src 'self' https://*.vscode-cdn.net data:;`,
+ 			'worker-src \'self\' data: blob:;',
+@@ -498,3 +507,70 @@ export class WebClientServer {
  		return void res.end(data);
  	}
  }
