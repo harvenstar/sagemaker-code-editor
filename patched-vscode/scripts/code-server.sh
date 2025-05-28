@@ -25,7 +25,6 @@ function code() {
 
 	NODE_ENV=development \
 	VSCODE_DEV=1 \
-	EXTENSIONS_GALLERY='{"serviceUrl": "<https://marketplace.visualstudio.com/_apis/public/gallery>", "itemUrl": "<https://marketplace.visualstudio.com/items>"}' \
 	$NODE $ROOT/scripts/code-server.js "$@"
 }
 
