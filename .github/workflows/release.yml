@@ -65,7 +65,7 @@ jobs:
           echo "sha256_hash=${SHA256_HASH}" >> $GITHUB_OUTPUT
       - name: Publish Release
         id: publish
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.3.0
         with:
           name: Code Editor ${{ needs.check-tag.outputs.version }}
           tag_name: v${{ needs.check-tag.outputs.version }}
