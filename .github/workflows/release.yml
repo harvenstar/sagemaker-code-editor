@@ -75,28 +75,29 @@ jobs:
       sha256_hash: ${{ steps.build.outputs.sha256_hash }}
       assets: ${{ steps.publish.outputs.assets }}
 
-# temporarily disabled until feedstock is ready
-# update-feedstock-files:
-#   runs-on: ubuntu-latest
-#   needs: [check-tag, release]
-#   steps:
-#     - name: Clone the feedstock repository
-#       uses: actions/checkout@v4
-#       with:
-#         repository: 'conda-forge/sagemaker-code-editor-feedstock'
-#         ref: 'dev'
-#     - name: Create a new dev branch
-#       run: |
-#         git checkout -b ${{ env.branch-name }}
-#     - name: Update meta.yaml
-#       run: |
-#         VERSION=${{ needs.check-tag.outputs.version }}
-#         sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" recipe/meta.yaml
 
-#         URL="${{ fromJSON(needs.release.outputs.assets)[0].browser_download_url }}"
-#         sed -i "s|url: .*\.tar\.gz|url: $URL|" recipe/meta.yaml
+  update-feedstock-files:
+    runs-on: ubuntu-latest
+    needs: [check-tag, release]
+    steps:
+      - name: Clone the feedstock repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'harvenstar/sagemaker-code-editor-feedstock'
+          ref: 'dev'
+          token: ${{ secrets.PERSONAL_TOKEN }}
+      - name: Create a new dev branch
+        run: |
+          git checkout -b ${{ env.branch-name }}
+      - name: Update meta.yaml
+        run: |
+          VERSION=${{ needs.check-tag.outputs.version }}
+          sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" recipe/meta.yaml
 
-#         SHA256=${{ needs.release.outputs.sha256_hash }}
-#         sed -i "s|sha256: [0-9a-f]*|sha256: $SHA256|" recipe/meta.yaml
-#     - name: Run diff
-#       run: git diff
+          URL="${{ fromJSON(needs.release.outputs.assets)[0].browser_download_url }}"
+          sed -i "s|url: .*\.tar\.gz|url: $URL|" recipe/meta.yaml
+
+          SHA256=${{ needs.release.outputs.sha256_hash }}
+          sed -i "s|sha256: [0-9a-f]*|sha256: $SHA256|" recipe/meta.yaml
+      - name: Run diff
+        run: git diff
