@@ -108,37 +108,49 @@ jobs:
         # - Git user name and email are configured for the commit.
         # - 'git add' stages the changes.
         # - 'git commit' creates a commit with a message including the new version.
-        #   ' || echo "No changes to commit." ' prevents the workflow from failing if there are no changes.
-        # - The current local branch (e.g., 'auto-update-vX.Y.Z') is pushed to the 'origin' remote.
+        #   ' || echo "No changes to commit." ' prevents the workflow from failing if there are no changes (e.g., if re-running on same version with no actual file change).
+        # - The current local branch (which is the dynamic branch, e.g., 'auto-update-vX.Y.Z') is pushed to the 'origin' remote.
         #   This creates the branch on the remote if it doesn't exist.
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add recipe/meta.yaml
-          git commit -m "Update recipe to v${{ needs.check-tag.outputs.version }}" || echo "No changes to commit."
+          # Check if there are changes to commit to avoid error if meta.yaml is already up-to-date
+          if git diff --staged --quiet; then
+            echo "No changes to commit."
+          else
+            git commit -m "Update recipe to v${{ needs.check-tag.outputs.version }}"
+          fi
+          # Get the current branch name (should be the dynamic one created earlier)
           CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
           echo "Pushing changes to origin/${CURRENT_BRANCH}"
           git push origin ${CURRENT_BRANCH}
 
       - name: Create Pull Request
         # This step uses the 'peter-evans/create-pull-request' action to create a pull request
-        # in the feedstock repository.
+        # in your feedstock repository (harvenstar/sagemaker-code-editor-feedstock).
         # - 'token': Uses the PAT from secrets for authentication.
-        # - 'base': Specifies the target branch for the pull request (e.g., 'dev').
+        # - 'branch': Explicitly set to the dynamic branch name created earlier.
+        # - 'base': Specifies the target branch for the pull request (e.g., 'dev' in your fork).
         # - 'title': Sets the title of the pull request, including the new version.
         # - 'body': Sets the body of the pull request, detailing the automated changes.
         # - 'labels': Optionally applies labels to the pull request.
-        # The action will use the commit(s) pushed in the previous step from the current branch.
         uses: peter-evans/create-pull-request@v6
         with:
           token: ${{ secrets.PERSONAL_TOKEN }}
-          base: dev
+          # Explicitly specify the head branch for the PR (the dynamic branch created in this job)
+          branch: ${{ steps.create_branch.outputs.branch_name }}
+          # The target branch in your harvenstar/sagemaker-code-editor-feedstock fork
+          base: dev 
           title: "[Automated] Update recipe to v${{ needs.check-tag.outputs.version }}"
           body: |
-            This is an automated pull request to update the feedstock recipe:
-            - Version: ${{ needs.check-tag.outputs.version }}
-            - Tarball URL: ${{ fromJSON(needs.release.outputs.assets)[0].browser_download_url }}
-            - SHA256: ${{ needs.release.outputs.sha256_hash }}
+            This is an automated pull request to update the feedstock recipe for sagemaker-code-editor.
+
+            **Version:** ${{ needs.check-tag.outputs.version }}
+            **Tarball URL:** ${{ fromJSON(needs.release.outputs.assets)[0].browser_download_url }}
+            **SHA256:** ${{ needs.release.outputs.sha256_hash }}
+
+            This PR was generated automatically by a GitHub Actions workflow.
           labels: automated-update, bot
           # assignees: harvenstar
           # reviewers: harvenstar
