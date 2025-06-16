@@ -112,6 +112,7 @@ jobs:
           repository: 'harvenstar/sagemaker-code-editor-feedstock'
           ref: 'dev'
           token: ${{ secrets.PERSONAL_TOKEN }}
+
       - name: Create and checkout dynamic update branch
         id: create_branch # Assign an ID to this step to reference its outputs
         run: |
@@ -143,8 +144,6 @@ jobs:
           sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" $META_FILE
 
           # Safely parse the download URL from the assets JSON output of the release job
-          # Ensure jq is available (ubuntu-latest runners typically include it)
-          # If not, you might need an `apt-get install jq` step or use a different parsing method.
           URL_JSON='${{ toJSON(needs.release.outputs.assets) }}'
           URL=$(echo "$URL_JSON" | jq -r '.[0].browser_download_url') # Extracts the browser_download_url of the first asset
           
