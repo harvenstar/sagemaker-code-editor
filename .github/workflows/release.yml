@@ -140,7 +140,7 @@ jobs:
 
           echo "Updating version to $VERSION in $META_FILE"
           # Update the version string in meta.yaml
-          sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" recipe/meta.yaml
+          sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" $META_FILE
 
           # Safely parse the download URL from the assets JSON output of the release job
           # Ensure jq is available (ubuntu-latest runners typically include it)
