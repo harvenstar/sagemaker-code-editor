@@ -161,7 +161,7 @@ jobs:
           # Critical Check: Verify if ASSETS_JSON is empty, the literal string "null", or an empty JSON string '""'.
           # These conditions usually indicate that the 'Publish Release' step failed to produce
           # any asset information (e.g., no files uploaded, or the step errored out).
-          if [ -z "$ASSETS_JSON" ] || [ "$ASSETS_JSON" = "null" ] || [ "$ASSETS_JSON" = '""' ]; then
+          if [[ -z "$ASSETS_JSON" || "$ASSETS_JSON" == "null" || "$ASSETS_JSON" == '""' ]]; then
             echo "Error: Critical - The 'assets' output from the 'Publish Release' step is empty, null, or an empty JSON string."
             echo "Value of ASSETS_JSON was: '$ASSETS_JSON'"
             echo "This strongly suggests that the 'Publish Release' step did not successfully provide asset information."
