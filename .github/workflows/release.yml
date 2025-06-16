@@ -136,7 +136,7 @@ jobs:
 
           # Check if the meta.yaml file exists at the expected path
           if [ ! -f "$META_FILE"
-           ]; then
+          ]; then
             echo "Error: $META_FILE not found in $(pwd)"
             ls -R # List directory contents for debugging if file not found
             exit 1
