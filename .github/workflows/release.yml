@@ -135,7 +135,8 @@ jobs:
           META_FILE="recipe/meta.yaml"
 
           # Check if the meta.yaml file exists at the expected path
-          if [ ! -f "$META_FILE" ]; then
+          if [ ! -f "$META_FILE"
+           ]; then
             echo "Error: $META_FILE not found in $(pwd)"
             ls -R # List directory contents for debugging if file not found
             exit 1
@@ -171,7 +172,7 @@ jobs:
           # Attempt to parse the browser_download_url of the first asset using jq.
           # The '-r' flag outputs the raw string value without JSON quotes.
           # We store both the output of jq and its exit code to diagnose any parsing issues.
-          URL_OUTPUT=$(echo "$ASSETS_JSON" | jq -r '.[0].browser_download_url')
+          URL_OUTPUT=$(jq -r '.[0].browser_download_url' <<< "$ASSETS_JSON")
           JQ_EXIT_CODE=$? # Capture jq's exit code immediately after it runs.
 
           # Check if jq command failed (non-zero exit code).
@@ -212,7 +213,7 @@ jobs:
           # This command finds "sha256: <hex_string>" and replaces the hex string.
           sed -i "s|sha256: [0-9a-fA-F]*|sha256: $SHA256|" "$META_FILE"
 
-          
+
       # Displays the differences in meta.yaml after modifications for verification
       - name: Show changes in meta.yaml
         run: git diff recipe/meta.yaml
