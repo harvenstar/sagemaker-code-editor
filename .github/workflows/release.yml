@@ -127,40 +127,92 @@ jobs:
           echo "branch_name=${NEW_BRANCH_NAME}" >> $GITHUB_OUTPUT
 
       # Updates the meta.yaml file in the cloned feedstock repository
+            # Updates the meta.yaml file in the cloned feedstock repository
       - name: Update meta.yaml
         run: |
+          # Get the version from the 'check-tag' job's output
           VERSION=${{ needs.check-tag.outputs.version }}
           META_FILE="recipe/meta.yaml"
 
           # Check if the meta.yaml file exists at the expected path
           if [ ! -f "$META_FILE" ]; then
             echo "Error: $META_FILE not found in $(pwd)"
-            ls -R # List directory contents for debugging
+            ls -R # List directory contents for debugging if file not found
             exit 1
           fi
 
           echo "Updating version to $VERSION in $META_FILE"
-          # Update the version string in meta.yaml
-          sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" $META_FILE
+          # Update the version string in meta.yaml using sed
+          # This command finds the line "{% set version = "..." %}" and replaces the version number.
+          sed -i "s/{% set version = \".*\" %}/{% set version = \"$VERSION\" %}/" "$META_FILE"
 
-          # Safely parse the download URL from the assets JSON output of the release job
-          URL_JSON='${{ toJSON(needs.release.outputs.assets) }}'
-          URL=$(echo "$URL_JSON" | jq -r '.[0].browser_download_url') # Extracts the browser_download_url of the first asset
-          
-          if [ -z "$URL" ] || [ "$URL" == "null" ]; then
-            echo "Error: Could not extract URL from assets. Assets JSON: $URL_JSON"
-            exit 1
+          # --- Start: Robust URL Extraction from Release Assets ---
+
+          # Debugging: Print the raw 'assets' output from the 'release' job.
+          # This helps to see exactly what data is being passed for parsing.
+          echo "Raw assets output from release job: '${{ needs.release.outputs.assets }}'"
+
+          # Store the 'assets' output (converted to a JSON string) from the 'release' job into a shell variable.
+          # The toJSON() function ensures that the output is a valid JSON string,
+          # which is important if the 'assets' output itself might not be strictly JSON formatted.
+          ASSETS_JSON='${{ toJSON(needs.release.outputs.assets) }}'
+
+          # Critical Check: Verify if ASSETS_JSON is empty, the literal string "null", or an empty JSON string '""'.
+          # These conditions usually indicate that the 'Publish Release' step failed to produce
+          # any asset information (e.g., no files uploaded, or the step errored out).
+          if [ -z "$ASSETS_JSON" ] || [ "$ASSETS_JSON" = "null" ] || [ "$ASSETS_JSON" = '""' ]; then
+            echo "Error: Critical - The 'assets' output from the 'Publish Release' step is empty, null, or an empty JSON string."
+            echo "Value of ASSETS_JSON was: '$ASSETS_JSON'"
+            echo "This strongly suggests that the 'Publish Release' step did not successfully provide asset information."
+            echo "Please thoroughly check the logs of the 'Publish Release' step in the 'release' job for errors or issues like missing file uploads."
+            exit 1 # Exit with an error if asset data is missing or invalid.
           fi
-          echo "Updating URL to $URL in $META_FILE"
-          # Update the URL in meta.yaml, using '|' as sed delimiter to avoid escaping slashes in URL
-          sed -i "s|url: .*\.tar\.gz|url: $URL|" $META_FILE
 
-          # Update the SHA256 hash in meta.yaml
+          # Attempt to parse the browser_download_url of the first asset using jq.
+          # The '-r' flag outputs the raw string value without JSON quotes.
+          # We store both the output of jq and its exit code to diagnose any parsing issues.
+          URL_OUTPUT=$(echo "$ASSETS_JSON" | jq -r '.[0].browser_download_url')
+          JQ_EXIT_CODE=$? # Capture jq's exit code immediately after it runs.
+
+          # Check if jq command failed (non-zero exit code).
+          if [ $JQ_EXIT_CODE -ne 0 ]; then
+            echo "Error: jq command failed with exit code $JQ_EXIT_CODE while trying to parse assets JSON."
+            echo "Input to jq was: $ASSETS_JSON"
+            # jq typically prints its own specific error message to stderr, which will also appear in the GitHub Actions log.
+            # This often means ASSETS_JSON was not a valid JSON array as jq expected (e.g., it was a string, an object, or malformed).
+            exit 1 # Exit with an error if jq failed.
+          fi
+          
+          # After jq runs successfully (exit code 0), check if the extracted URL_OUTPUT is empty or the string "null".
+          # jq -r outputs the literal string "null" if the JSON value at the path is actually null.
+          # An empty string could occur if the field exists but is empty, or if the path was valid but led to an empty value.
+          if [ -z "$URL_OUTPUT" ] || [ "$URL_OUTPUT" = "null" ]; then
+            echo "Error: Extracted URL is empty or null, even though the jq command was successful (exit code 0)."
+            echo "jq output for URL was: '$URL_OUTPUT'"
+            echo "Input to jq was: $ASSETS_JSON"
+            echo "This could mean the assets array was empty (e.g., '[]'), or the first asset object (index [0]) did not have a 'browser_download_url' field, or that field's value was explicitly null."
+            exit 1 # Exit with an error if the URL couldn't be meaningfully extracted.
+          fi
+          
+          # If all checks pass, assign the successfully extracted URL to the URL variable.
+          URL="$URL_OUTPUT"
+
+          # --- End: Robust URL Extraction ---
+
+          echo "Updating URL to $URL in $META_FILE"
+          # Update the URL in meta.yaml using sed.
+          # The '|' character is used as a delimiter for sed to avoid issues with slashes '/' in the URL.
+          # This command finds "url: ...tar.gz" and replaces the URL part.
+          sed -i "s|url: .*\.tar\.gz|url: $URL|" "$META_FILE"
+
+          # Get the SHA256 hash from the 'release' job's output
           SHA256=${{ needs.release.outputs.sha256_hash }}
           echo "Updating SHA256 to $SHA256 in $META_FILE"
-          # Update the SHA256 hash in meta.yaml (matches a hexadecimal string)
-          sed -i "s|sha256: [0-9a-fA-F]*|sha256: $SHA256|" $META_FILE
+          # Update the SHA256 hash in meta.yaml using sed.
+          # This command finds "sha256: <hex_string>" and replaces the hex string.
+          sed -i "s|sha256: [0-9a-fA-F]*|sha256: $SHA256|" "$META_FILE"
 
+          
       # Displays the differences in meta.yaml after modifications for verification
       - name: Show changes in meta.yaml
         run: git diff recipe/meta.yaml
