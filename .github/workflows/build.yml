@@ -1,44 +1,48 @@
-name: Build sagemaker-code-editor
+name: Build and Release sagemaker-code-editor
 
 on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (include "v", e.g. "v1.2.3")'
+        required: true
+        type: string
   push:
-    branches:
-      - main
-  pull_request:
-    branches:
-      - main
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
-  build:
+  build-release:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
-    env:
-      DISABLE_V8_COMPILE_CACHE: 1
-
     steps:
-      - name: Checkout repo with submodules
+      - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python3 jq perl gettext automake autoconf quilt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Cache node modules
-        uses: actions/cache@v4
-        with:
-          path: |
-            vscode/node_modules
-          key: ${{ runner.os }}-node20-${{ hashFiles('vscode/package.json', 'vscode/yarn.lock') }}
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python3 jq perl gettext automake autoconf quilt
 
-      - name: Build vscode
+      - name: Get and set VERSION
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            TAG="${{ github.event.inputs.version }}"
+          else
+            TAG="${{ github.ref_name }}"
+          fi
+          echo "VERSION=${TAG#v}" >> $GITHUB_ENV
+          echo "TAG=${TAG}" >> $GITHUB_ENV
+
+      - name: Build sagemaker-code-editor
         run: |
           cd vscode
           export DISABLE_V8_COMPILE_CACHE=1
@@ -53,16 +57,13 @@ jobs:
           yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
           ARCH_ALIAS=linux-x64
           yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
+          cd ..
+          TARBALL="sagemaker-code-editor-${VERSION}-linux-x64.tar.gz"
+          tar czf $TARBALL -C vscode vscode-reh-web-linux-x64-min
 
-      - name: List vscode directory after build
-        run: ls -lh vscode
-
-      - name: Package built vscode
-        run: |
-          tar czf vscode-reh-web-linux-x64-min.tar.gz -C vscode vscode-reh-web-linux-x64-min
-
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: vscode-reh-web-linux-x64-min
-          path: vscode-reh-web-linux-x64-min.tar.gz
+          name: sagemaker-code-editor ${{ env.VERSION }}
+          tag_name: ${{ env.TAG }}
+          files: sagemaker-code-editor-${{ env.VERSION }}-linux-x64.tar.gz
