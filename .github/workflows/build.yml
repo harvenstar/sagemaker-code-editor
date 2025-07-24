@@ -7,53 +7,56 @@ on:
   pull_request:
     branches:
       - main
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      DISABLE_V8_COMPILE_CACHE: 1
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo with submodules
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev krb5-multidev python3 jq perl gettext automake autoconf quilt
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - name: Install system build dependencies
+      - name: Install vscode dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev krb5-multidev python3 jq perl gettext automake autoconf quilt
-      - name: Apply patches (if any)
-        run: |
-          if [ -d patches ]; then
-            quilt push -a || true
-          fi
-      - name: Build vscode with ripgrep hack
+          cd vscode
+          yarn install --frozen-lockfile
+
+      - name: Build vscode
         run: |
           cd vscode
           export DISABLE_V8_COMPILE_CACHE=1
           export NODE_OPTIONS="--max-old-space-size=4096"
           export UV_THREADPOOL_SIZE=4
           npm i -g node-gyp
-          yarn install --network-concurrency 1
-          VSCODE_RIPGREP_VERSION=$(jq -r '.dependencies."@vscode/ripgrep"' package.json)
-          mv package.json package.json.orig
-          jq 'del(.dependencies."@vscode/ripgrep")' package.json.orig > package.json
-          yarn install
-          yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
-          ARCH_ALIAS=linux-x64
-          yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
-          cd ..
-      - name: Package built vscode
+          yarn build
+
+      - name: Build main project
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: yarn build
+
+      - name: Package release
         run: |
-          tar czf vscode-reh-web-linux-x64.tar.gz -C vscode vscode-reh-web-linux-x64
-      - name: Upload build artifact
+          tar -czf package.tar.gz release || echo "No release dir, skipping tar"
+
+      - name: Upload npm package artifact
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: vscode-reh-web-linux-x64
-          path: vscode-reh-web-linux-x64.tar.gz
+          name: npm-package
+          path: ./package.tar.gz
