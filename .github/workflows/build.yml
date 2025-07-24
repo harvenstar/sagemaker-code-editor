@@ -1,104 +1,59 @@
-name: Build
+name: Build sagemaker-code-editor
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   build:
-    name: Build sagemaker-code-editor
-    runs-on: ubuntu-20.04
-    timeout-minutes: 60
-    env:
-      DISABLE_V8_COMPILE_CACHE: 1
+    runs-on: ubuntu-latest
+
     steps:
-      # Checkout repo with submodules (for vscode)
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          submodules: true
+          submodules: recursive
 
-      # Install system dependencies (Kerberos for node-gyp usage)
-      - name: Install system dependencies
-        run: sudo apt update && sudo apt install -y libkrb5-dev
-
-      # Install quilt for patching
-      - name: Install quilt
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: quilt
-          version: 1.0
-
-      # Apply all patches via quilt
-      - name: Apply patches (if any)
-        run: quilt push -a
-
-      # Set up Node.js (required for yarn install)
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      # Install dependencies for main project (if you ever add a yarn.lock to root, you can cache this)
-      - name: Install main dependencies
-        run: yarn install --frozen-lockfile || true
-
-      # Install and cache dependencies for vscode submodule
-      - name: Set up Node.js for vscode
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: yarn
-          cache-dependency-path: vscode/yarn.lock
-
-      - name: Install vscode dependencies
+      - name: Install system build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev krb5-multidev python3 jq perl gettext automake autoconf quilt
+      - name: Apply patches (if any)
+        run: |
+          if [ -d patches ]; then
+            quilt push -a || true
+          fi
+      - name: Build vscode with ripgrep hack
         run: |
           cd vscode
-          yarn install --frozen-lockfile
-
-      # Build main project
-      - name: Build main project
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn build
-
-      # Get latest vscode commit hash (for caching built artifacts)
-      - name: Get latest vscode rev
-        id: vscode-rev
-        run: echo "rev=$(git rev-parse HEAD:./vscode)" >> $GITHUB_OUTPUT
-
-      # Cache prebuilt vscode package if available
-      - name: Fetch prebuilt vscode package from cache
-        id: cache-vscode
-        uses: actions/cache@v4
-        with:
-          path: vscode-reh-web-*
-          key: vscode-reh-package-${{ secrets.VSCODE_CACHE_VERSION }}-${{ steps.vscode-rev.outputs.rev }}-${{ hashFiles('patches/*.diff', 'ci/build/build-vscode.sh') }}
-
-      # Build vscode if cache missed
-      - name: Build vscode
-        env:
-          VERSION: "0.0.0"
-        if: steps.cache-vscode.outputs.cache-hit != 'true'
-        run: yarn build:vscode
-
-      # Create release package
-      - name: Create release package
-        run: yarn release
-
-      # Compress release output for artifact upload
-      - name: Compress release package
-        run: tar -czf package.tar.gz release
-
-      # Upload the package for further steps or download
-      - name: Upload npm package artifact
+          export DISABLE_V8_COMPILE_CACHE=1
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          export UV_THREADPOOL_SIZE=4
+          npm i -g node-gyp
+          yarn install --network-concurrency 1
+          VSCODE_RIPGREP_VERSION=$(jq -r '.dependencies."@vscode/ripgrep"' package.json)
+          mv package.json package.json.orig
+          jq 'del(.dependencies."@vscode/ripgrep")' package.json.orig > package.json
+          yarn install
+          yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
+          ARCH_ALIAS=linux-x64
+          yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
+          cd ..
+      - name: Package built vscode
+        run: |
+          tar czf vscode-reh-web-linux-x64.tar.gz -C vscode vscode-reh-web-linux-x64
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: npm-package
-          path: ./package.tar.gz
+          name: vscode-reh-web-linux-x64
+          path: vscode-reh-web-linux-x64.tar.gz
