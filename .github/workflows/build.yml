@@ -25,10 +25,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python3 jq perl gettext automake autoconf quilt
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            vscode/node_modules
+          key: ${{ runner.os }}-node20-${{ hashFiles('vscode/package.json', 'vscode/yarn.lock') }}
 
       - name: Build vscode
         run: |
@@ -45,11 +53,16 @@ jobs:
           yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
           ARCH_ALIAS=linux-x64
           yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
+
+      - name: List vscode directory after build
+        run: ls -lh vscode
+
       - name: Package built vscode
         run: |
-          tar czf vscode-reh-web-linux-x64.tar.gz -C vscode vscode-reh-web-linux-x64
+          tar czf vscode-reh-web-linux-x64-min.tar.gz -C vscode vscode-reh-web-linux-x64-min
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vscode-reh-web-linux-x64
-          path: vscode-reh-web-linux-x64.tar.gz
+          name: vscode-reh-web-linux-x64-min
+          path: vscode-reh-web-linux-x64-min.tar.gz
