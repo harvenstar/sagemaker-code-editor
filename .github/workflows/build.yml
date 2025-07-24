@@ -1,63 +1,101 @@
-name: Build sagemaker-code-editor
+name: Build
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   pull_request:
-    branches:
-      - main
-  workflow_dispatch:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    name: Build sagemaker-code-editor
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      DISABLE_V8_COMPILE_CACHE: 1
 
     steps:
-      - name: Checkout repository
+      # 1. Checkout the repository including submodules (such as vscode)
+      - name: Checkout repo (with submodules)
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: true
 
+      # 2. Install system dependencies (kerberos related)
+      - name: Install system dependencies
+        run: sudo apt update && sudo apt install -y libkrb5-dev
+
+      # 3. Install quilt for applying patches (with cache)
+      - name: Install quilt (cached)
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: quilt
+          version: 1.0
+
+      # 4. Apply all patches in the patches directory (if any)
+      - name: Apply patches (if any)
+        run: quilt push -a
+
+      # 5. Set up Node.js environment
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            test/package-lock.json
 
-      - name: Install system build dependencies
+      # 6. Install Node dependencies, skip submodule deps
+      - name: Install dependencies
+        run: SKIP_SUBMODULE_DEPS=1 npm ci
+
+      # 7. Build the main project
+      - name: Build main project
+        run: npm run build
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 8. Get the current vscode submodule commit hash (for cache key)
+      - name: Get latest vscode rev
+        id: vscode-rev
+        run: echo "rev=$(git rev-parse HEAD:./vscode)" >> $GITHUB_OUTPUT
+
+      # 9. Fetch prebuilt vscode package from cache if available
+      - name: Fetch prebuilt vscode package from cache
+        id: cache-vscode
+        uses: actions/cache@v4
+        with:
+          path: vscode-reh-web-*
+          key: vscode-reh-package-${{ secrets.VSCODE_CACHE_VERSION }}-${{ steps.vscode-rev.outputs.rev }}-${{ hashFiles('patches/*.diff', 'ci/build/build-vscode.sh') }}
+
+      # 10. Build vscode if cache is missed
+      - name: Build vscode
+        env:
+          VERSION: "0.0.0"
+        if: steps.cache-vscode.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev krb5-multidev libkrb5-dev python3 python3-pip jq perl gettext automake autoconf quilt
+          pushd vscode
+          npm ci
+          popd
+          npm run build:vscode
 
-      - name: Apply patches (if any)
-        run: |
-          if [ -d patches ]; then
-            quilt push -a || true
-          fi
+      # 11. Package the release output
+      - name: Create release package
+        run: npm run release
+        if: success()
 
-      - name: Build vscode with ripgrep hack
-        run: |
-          cd vscode
-          export DISABLE_V8_COMPILE_CACHE=1
-          export NODE_OPTIONS="--max-old-space-size=4096"
-          export UV_THREADPOOL_SIZE=4
-          npm i -g node-gyp
-          yarn install --network-concurrency 1
-          VSCODE_RIPGREP_VERSION=$(jq -r '.dependencies."@vscode/ripgrep"' package.json)
-          mv package.json package.json.orig
-          jq 'del(.dependencies."@vscode/ripgrep")' package.json.orig > package.json
-          yarn install
-          yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
-          ARCH_ALIAS=linux-x64
-          yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
-          cd ..
+      # 12. Compress the release directory as a tarball
+      - name: Compress release package
+        run: tar -czf package.tar.gz release
 
-      - name: Package built vscode
-        run: |
-          tar czf vscode-reh-web-linux-x64.tar.gz -C vscode vscode-reh-web-linux-x64
-
-      - name: Upload build artifact
+      # 13. Upload build artifact for further steps or download
+      - name: Upload npm package artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vscode-reh-web-linux-x64
-          path: vscode-reh-web-linux-x64.tar.gz
+          name: npm-package
+          path: ./package.tar.gz
