@@ -31,32 +31,28 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install vscode dependencies
-        run: |
-          cd vscode
-          yarn install --frozen-lockfile
-
-      - name: Build vscode
+      - name: Build vscode (参考 bash 脚本)
         run: |
           cd vscode
           export DISABLE_V8_COMPILE_CACHE=1
           export NODE_OPTIONS="--max-old-space-size=4096"
           export UV_THREADPOOL_SIZE=4
           npm i -g node-gyp
-          yarn build
+          yarn install --network-concurrency 1
+          VSCODE_RIPGREP_VERSION=$(jq -r '.dependencies."@vscode/ripgrep"' package.json)
+          mv package.json package.json.orig
+          jq 'del(.dependencies."@vscode/ripgrep")' package.json.orig > package.json
+          yarn install
+          yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
+          ARCH_ALIAS=linux-x64
+          yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
 
-      - name: Build main project
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: yarn build
-
-      - name: Package release
+      - name: Package built vscode
         run: |
-          tar -czf package.tar.gz release || echo "No release dir, skipping tar"
+          tar czf vscode-reh-web-linux-x64.tar.gz -C vscode vscode-reh-web-linux-x64
 
-      - name: Upload npm package artifact
-        if: success()
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: npm-package
-          path: ./package.tar.gz
+          name: vscode-reh-web-linux-x64
+          path: vscode-reh-web-linux-x64.tar.gz
