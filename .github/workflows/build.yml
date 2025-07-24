@@ -31,7 +31,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Build vscode (参考 bash 脚本)
+      - name: Build vscode 
         run: |
           cd vscode
           export DISABLE_V8_COMPILE_CACHE=1
