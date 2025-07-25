@@ -1,0 +1,116 @@
+name: Build sagemaker-code-editor and Generate Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (include "v", e.g. "v1.2.3")'
+        required: true
+        type: string
+
+jobs:
+  build-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      DISABLE_V8_COMPILE_CACHE: 1
+
+    steps:
+      - name: Checkout repo with submodules
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y make gcc g++ libx11-dev xorg-dev libxkbfile-dev libsecret-1-dev libkrb5-dev python3 jq perl gettext automake autoconf quilt
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Cache node modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            vscode/node_modules
+          key: ${{ runner.os }}-node20-${{ hashFiles('vscode/package.json', 'vscode/yarn.lock') }}
+
+      - name: Apply patches (if any)
+        run: |
+          if [ -d patches ] && [ "$(ls -A patches)" ]; then
+            quilt push -a || true
+          fi
+
+      - name: Get and set VERSION
+        id: version
+        run: |
+          VER="${{ github.event.inputs.version }}"
+          # Strip leading "v" if present, for use in file naming
+          SHORTVER="${VER#v}"
+          echo "VERSION=$VER" >> $GITHUB_ENV
+          echo "SHORTVER=$SHORTVER" >> $GITHUB_ENV
+
+      - name: Build vscode
+        run: |
+          cd vscode
+          export DISABLE_V8_COMPILE_CACHE=1
+          export UV_THREADPOOL_SIZE=4
+          npm i -g node-gyp
+          yarn install --network-concurrency 1
+          VSCODE_RIPGREP_VERSION=$(jq -r '.dependencies."@vscode/ripgrep"' package.json)
+          mv package.json package.json.orig
+          jq 'del(.dependencies."@vscode/ripgrep")' package.json.orig > package.json
+          yarn install
+          yarn add --ignore-scripts "@vscode/ripgrep@${VSCODE_RIPGREP_VERSION}"
+          ARCH_ALIAS=linux-x64
+          # This is the actual build command. If it fails, the workflow stops here.
+          yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
+
+      - name: Explore workspace to find build output
+        id: explore
+        run: |
+          echo "--- Exploring workspace after build ---"
+          # List the contents of the root directory to see if the build output is here.
+          ls -lA
+          
+          # Use the 'find' command to locate the build directory.
+          # The result is captured into a GitHub Actions output variable.
+          BUILD_PATH=$(find . -name "vscode-reh-web-linux-x64" -type d | head -n 1)
+          
+          if [ -z "$BUILD_PATH" ]; then
+            echo "::error::Build output directory 'vscode-reh-web-linux-x64' not found!"
+            exit 1
+          fi
+          
+          echo "Build output found at: $BUILD_PATH"
+          echo "build_path=$BUILD_PATH" >> $GITHUB_OUTPUT
+
+      - name: Create tarball archive
+        run: |
+          TARBALL="vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz"
+          BUILD_DIR_PATH="${{ steps.explore.outputs.build_path }}"
+          
+          # We need to navigate to the parent directory of the build output to create the tarball correctly.
+          PARENT_DIR=$(dirname "$BUILD_DIR_PATH")
+          BUILD_DIR_NAME=$(basename "$BUILD_DIR_PATH")
+          
+          echo "Creating '$TARBALL' from '$BUILD_DIR_NAME' located in '$PARENT_DIR'"
+          tar czf $TARBALL -C "$PARENT_DIR" "$BUILD_DIR_NAME"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-reh-web-linux-x64-${{ env.SHORTVER }}
+          path: vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz
+
+      - name: Create GitHub Release and upload tarball
+        uses: softprops/action-gh-release@v2
+        with:
+          name: sagemaker-code-editor ${{ env.VERSION }}
+          tag_name: ${{ env.VERSION }}
+          files: vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz
+          draft: true # Set to true to create a draft release
+          #test part
