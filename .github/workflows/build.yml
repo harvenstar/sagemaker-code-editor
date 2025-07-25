@@ -3,7 +3,7 @@ name: Build sagemaker-code-editor and Generate Artifact
 
 
 
-# This workflow is triggered on pushes and pull requests to the main branch.
+# This workflow is triggered on pushes and pull requests.
 on:
   push:
     branches:
