@@ -57,7 +57,6 @@ jobs:
         run: |
           cd vscode
           export DISABLE_V8_COMPILE_CACHE=1
-          export NODE_OPTIONS="--max-old-space-size=4096"
           export UV_THREADPOOL_SIZE=4
           npm i -g node-gyp
           yarn install --network-concurrency 1
@@ -69,7 +68,6 @@ jobs:
           ARCH_ALIAS=linux-x64
           # This is the actual build command. If it fails, the workflow stops here.
           yarn gulp vscode-reh-web-${ARCH_ALIAS}-min
-          # The problematic tar command has been removed from this step.
 
       - name: Explore workspace to find build output
         id: explore
@@ -80,10 +78,10 @@ jobs:
           
           # Use the 'find' command to locate the build directory.
           # The result is captured into a GitHub Actions output variable.
-          BUILD_PATH=$(find . -name "vscode-reh-web-linux-x64-min" -type d | head -n 1)
+          BUILD_PATH=$(find . -name "vscode-reh-web-linux-x64" -type d | head -n 1)
           
           if [ -z "$BUILD_PATH" ]; then
-            echo "::error::Build output directory 'vscode-reh-web-linux-x64-min' not found!"
+            echo "::error::Build output directory 'vscode-reh-web-linux-x64' not found!"
             exit 1
           fi
           
@@ -92,7 +90,7 @@ jobs:
 
       - name: Create tarball archive
         run: |
-          TARBALL="vscode-reh-web-linux-x64-min-${{ env.SHORTVER }}.tar.gz"
+          TARBALL="vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz"
           BUILD_DIR_PATH="${{ steps.explore.outputs.build_path }}"
           
           # We need to navigate to the parent directory of the build output to create the tarball correctly.
@@ -105,13 +103,14 @@ jobs:
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: vscode-reh-web-linux-x64-min-${{ env.SHORTVER }}
-          path: vscode-reh-web-linux-x64-min-${{ env.SHORTVER }}.tar.gz
+          name: vscode-reh-web-linux-x64-${{ env.SHORTVER }}
+          path: vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz
 
       - name: Create GitHub Release and upload tarball
         uses: softprops/action-gh-release@v2
         with:
           name: sagemaker-code-editor ${{ env.VERSION }}
           tag_name: ${{ env.VERSION }}
-          files: vscode-reh-web-linux-x64-min-${{ env.SHORTVER }}.tar.gz
+          files: vscode-reh-web-linux-x64-${{ env.SHORTVER }}.tar.gz
           draft: true # Set to true to create a draft release
+          #test part
